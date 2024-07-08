@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import numpy as np
 import moviepy.editor as mp
 import zipfile
 

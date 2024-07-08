@@ -1,5 +1,2 @@
-streamlit
-numpy
-opencv-python
-os
-zipfile
+streamlit==1.11.0
+moviepy==1.0.3S

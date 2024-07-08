@@ -1,20 +1,14 @@
 import streamlit as st
 import os
-import numpy as np
 import zipfile
 import subprocess
-from moviepy.editor import VideoFileClip
+import ffmpeg
+import numpy as np
 
 try:
     import cv2
 except ImportError as e:
     st.error(f"Error importing cv2: {e}")
-    st.stop()
-
-try:
-    import numpy as np
-except ImportError as e:
-    st.error(f"Error importing numpy: {e}")
     st.stop()
 
 # ディレクトリの作成

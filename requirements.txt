@@ -1,6 +1,0 @@
-streamlit
-opencv-python-headless
-numpy
-moviepy
-tqdm
-ffmpeg-python

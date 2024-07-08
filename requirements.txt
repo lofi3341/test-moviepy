@@ -1,4 +1,7 @@
 streamlit==1.11.0
 moviepy==1.0.3
-opencv-python==4.5.5.64
 numpy==1.21.6
+opencv-python==4.5.5.64
+os
+zipfile
+subprocess

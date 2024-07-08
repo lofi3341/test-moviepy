@@ -1,15 +1,20 @@
 import streamlit as st
 import os
+import numpy as np
+import moviepy.editor as mp
 import zipfile
 import subprocess
-import ffmpeg
-import numpy as np
 
 try:
     import cv2
 except ImportError as e:
     st.error(f"Error importing cv2: {e}")
     st.stop()
+
+if not os.path.exists('ffmpeg'):
+    st.info("Downloading ffmpeg...")
+    subprocess.run(["bash", "./download_ffmpeg.sh"])
+    st.success("ffmpeg successfully downloaded.")
 
 # ディレクトリの作成
 if not os.path.exists('uploads'):
@@ -63,29 +68,19 @@ def process_and_merge_videos(video_paths):
 
 # 動画から音声を抽出する関数
 def extract_audio(video_path):
+    clip = mp.VideoFileClip(video_path)
     audio_path = os.path.join('output', 'audio_' + os.path.basename(video_path).replace('.mp4', '.wav'))
-    command = [
-        'ffmpeg',
-        '-i', video_path,
-        '-vn',
-        '-acodec', 'pcm_s16le',
-        audio_path
-    ]
-    subprocess.run(command, check=True)
+    clip.audio.write_audiofile(audio_path, codec='pcm_s16le')
     return audio_path
 
 # 音声を挿入する関数
 def insert_audio(video_path, audio_path):
+    video_clip = mp.VideoFileClip(video_path)
+    audio_clip = mp.AudioFileClip(audio_path)
+
+    final_clip = video_clip.set_audio(audio_clip)
     output_path = os.path.join('output', 'final_' + os.path.basename(video_path))
-    command = [
-        'ffmpeg',
-        '-i', video_path,
-        '-i', audio_path,
-        '-c:v', 'copy',
-        '-c:a', 'aac',
-        output_path
-    ]
-    subprocess.run(command, check=True)
+    final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
     return output_path
 
 # 動画と音声を削除する関数
@@ -99,16 +94,10 @@ def delete_files():
 
 # 動画を指定したサイズに変換する関数
 def resize_video(video_path, width, height):
+    clip = mp.VideoFileClip(video_path)
+    resized_clip = clip.resize((width, height))
     output_path = os.path.join('output', f'resized_{os.path.basename(video_path)}')
-    command = [
-        'ffmpeg',
-        '-i', video_path,
-        '-vf', f'scale={width}:{height}',
-        '-c:v', 'libx264',
-        '-c:a', 'aac',
-        output_path
-    ]
-    subprocess.run(command, check=True)
+    resized_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
     return output_path
 
 # 全ての出力動画をzipアーカイブにまとめる関数

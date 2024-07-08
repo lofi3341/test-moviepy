@@ -11,6 +11,12 @@ except ImportError as e:
     st.error(f"Error importing cv2: {e}")
     st.stop()
 
+try:
+    import numpy as np
+except ImportError as e:
+    st.error(f"Error importing numpy: {e}")
+    st.stop()
+
 # ディレクトリの作成
 if not os.path.exists('uploads'):
     os.makedirs('uploads')

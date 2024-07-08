@@ -1,7 +1,20 @@
 import streamlit as st
 import os
+import numpy as np
 import moviepy.editor as mp
 import zipfile
+import subprocess
+
+try:
+    import cv2
+except ImportError as e:
+    st.error(f"Error importing cv2: {e}")
+    st.stop()
+
+if not os.path.exists('ffmpeg'):
+    st.info("Downloading ffmpeg...")
+    subprocess.run(["bash", "./download_ffmpeg.sh"])
+    st.success("ffmpeg successfully downloaded.")
 
 # ディレクトリの作成
 if not os.path.exists('uploads'):
@@ -13,10 +26,6 @@ if not os.path.exists('downloads'):
 
 st.write("Directories created")
 
-# デバッグ用の関数
-def debug_message(message):
-    st.write(f"DEBUG: {message}")
-
 # 動画ファイルをアップロードする関数
 def upload_videos(uploaded_files):
     saved_files = []
@@ -25,25 +34,36 @@ def upload_videos(uploaded_files):
         with open(video_path, 'wb') as f:
             f.write(uploaded_file.getbuffer())
         saved_files.append(video_path)
-    debug_message(f"Uploaded files: {saved_files}")
     return saved_files
 
 # 動画を分割し、結合する関数
 def process_and_merge_videos(video_paths):
     output_paths = []
     for video_path in video_paths:
-        clip = mp.VideoFileClip(video_path)
-        width, height = clip.size
+        cap = cv2.VideoCapture(video_path)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-        left_top = clip.crop(x1=0, y1=0, x2=width//2, y2=height//2)
-        right_top = clip.crop(x1=width//2, y1=0, x2=width, y2=height//2)
-        left_bottom = clip.crop(x1=0, y1=height//2, x2=width//2, y2=height)
-
-        combined_clip = mp.clips_array([[left_top, right_top], [left_bottom, left_bottom]])
         output_path = os.path.join('output', 'merged_' + os.path.basename(video_path))
-        combined_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (5760, 1080))
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            left_top = frame[:height//2, :width//2]
+            right_top = frame[:height//2, width//2:]
+            left_bottom = frame[height//2:, :width//2]
+
+            combined_frame = np.hstack((left_top, right_top, left_bottom))
+            out.write(combined_frame)
+
+        cap.release()
+        out.release()
         output_paths.append(output_path)
-    debug_message(f"Processed and merged videos: {output_paths}")
     return output_paths
 
 # 動画から音声を抽出する関数
@@ -51,7 +71,6 @@ def extract_audio(video_path):
     clip = mp.VideoFileClip(video_path)
     audio_path = os.path.join('output', 'audio_' + os.path.basename(video_path).replace('.mp4', '.wav'))
     clip.audio.write_audiofile(audio_path, codec='pcm_s16le')
-    debug_message(f"Extracted audio: {audio_path}")
     return audio_path
 
 # 音声を挿入する関数
@@ -62,7 +81,6 @@ def insert_audio(video_path, audio_path):
     final_clip = video_clip.set_audio(audio_clip)
     output_path = os.path.join('output', 'final_' + os.path.basename(video_path))
     final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
-    debug_message(f"Inserted audio into video: {output_path}")
     return output_path
 
 # 動画と音声を削除する関数
@@ -73,7 +91,6 @@ def delete_files():
         os.remove(os.path.join('output', file))
     for file in os.listdir('downloads'):
         os.remove(os.path.join('downloads', file))
-    debug_message("All files deleted")
 
 # 動画を指定したサイズに変換する関数
 def resize_video(video_path, width, height):
@@ -81,7 +98,6 @@ def resize_video(video_path, width, height):
     resized_clip = clip.resize((width, height))
     output_path = os.path.join('output', f'resized_{os.path.basename(video_path)}')
     resized_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
-    debug_message(f"Resized video: {output_path}")
     return output_path
 
 # 全ての出力動画をzipアーカイブにまとめる関数
@@ -90,7 +106,6 @@ def create_zip(video_paths, zip_name):
     with zipfile.ZipFile(zip_path, 'w') as zipf:
         for video_path in video_paths:
             zipf.write(video_path, os.path.basename(video_path))
-    debug_message(f"Created zip file: {zip_path}")
     return zip_path
 
 # Streamlitインターフェース
